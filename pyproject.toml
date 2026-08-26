@@ -1,0 +1,42 @@
+[build-system]
+requires = ["uv_build<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "ripple-control"
+version = "0.1.0"
+description = "Utilities to control the RippleNeuroMed Explorer Summit"
+readme = "README.md"
+requires-python = "==3.12"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Raj Magesh Gauthaman", email = "ripple-control@raj-magesh.org" },
+]
+keywords = ["sEEG", "RippleNeuroMed control"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
+urls = { source = "https://codeberg.org/raj-magesh/ripple-control" }
+dependencies = ["loguru", "xipppy"]
+import-names = ["ripple_control"]
+
+[dependency-groups]
+dev = ["ruff", "ty", "pytest", "sphinx"]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.sources]
+xipppy = [
+    { path = "../xipppy/xipppy-0.21.13-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux'" },
+    { path = "../xipppy/xipppy-0.21.29-cp312-cp312-win_amd64.whl", marker = "sys_platform == 'win32'" },
+]

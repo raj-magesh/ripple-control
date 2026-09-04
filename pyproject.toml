@@ -24,11 +24,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 urls = { source = "https://codeberg.org/raj-magesh/ripple-control" }
-dependencies = ["loguru", "xipppy"]
+dependencies = ["loguru>=0.7.3", "xipppy>=0.21,<0.22"]
 import-names = ["ripple_control"]
 
 [dependency-groups]
-dev = ["ruff", "ty", "pytest", "sphinx"]
+dev = ["ruff", "ty", "deptry", "pytest", "sphinx"]
 
 [tool.uv]
 environments = [

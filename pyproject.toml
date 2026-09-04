@@ -5,9 +5,9 @@ build-backend = "uv_build"
 [project]
 name = "ripple-control"
 version = "0.1.0"
-description = "Utilities to control the RippleNeuroMed Explorer Summit"
+description = "Utilities to control the RippleNeuroMed Explorer Summit from Python and MATLAB"
 readme = "README.md"
-requires-python = "==3.12"
+requires-python = ">=3.12,<3.13"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [
@@ -31,12 +31,16 @@ import-names = ["ripple_control"]
 dev = ["ruff", "ty", "pytest", "sphinx"]
 
 [tool.uv]
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
 required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 
 [tool.uv.sources]
 xipppy = [
-    { path = "../xipppy/xipppy-0.21.13-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux'" },
-    { path = "../xipppy/xipppy-0.21.29-cp312-cp312-win_amd64.whl", marker = "sys_platform == 'win32'" },
+    { path = "vendor/xipppy/xipppy-0.21.13-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux'" },
+    { path = "vendor/xipppy/xipppy-0.21.29-cp312-cp312-win_amd64.whl", marker = "sys_platform == 'win32'" },
 ]

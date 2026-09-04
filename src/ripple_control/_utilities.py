@@ -3,7 +3,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import queue
 import time
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import xipppy as xp
 from loguru import logger
@@ -15,38 +15,39 @@ PARALLEL_PORT_INDEX = 4
 USE_TCP = True
 
 
-def _attempt_xipppy_connection(use_tcp: bool, out_q):
-    try:
-        with xp.xipppy_open(use_tcp=use_tcp):
-            out_q.put(True)
-            logger.info(
-                "Connected to RippleNeuroMed Explorer Summit | {version_info}",
-                version_info=xp.get_version(),
-            )
-    except xp.exception.XippPyException:
-        out_q.put(False)
-    except Exception:
-        out_q.put(False)
+def check_xipppy_connection(*, timeout_s: float = 5, use_tcp: bool = USE_TCP) -> bool:
+    def _attempt_xipppy_connection(*, use_tcp: bool, output_queue: mp.Queue) -> None:
+        try:
+            with xp.xipppy_open(use_tcp=use_tcp):
+                output_queue.put(obj=True)
+                logger.info(
+                    "Connected to RippleNeuroMed Explorer Summit | {version_info}",
+                    version_info=xp.get_version(),
+                )
+        except Exception:
+            output_queue.put(obj=False)
+            raise
 
-
-def check_xipppy_connection(*, timeout_s: float = 10, use_tcp: bool = USE_TCP) -> bool:
     logger.info("Attempting to connect to RippleNeuroMed sEEG device...")
 
-    ctx = mp.get_context("spawn")  # cross-platform, esp. Windows
+    context = mp.get_context("spawn")  # cross-platform, esp. Windows
+    output_queue = context.Queue(maxsize=1)
+    process = context.Process(
+        target=_attempt_xipppy_connection,
+        kwargs={"use_tcp": use_tcp, "output_queue": output_queue},
+        daemon=True,
+    )
+    process.start()
+    process.join(timeout_s)
 
-    out_q = ctx.Queue(maxsize=1)
-    p = ctx.Process(target=_attempt_xipppy_connection, args=(use_tcp, out_q), daemon=True)
-    p.start()
-    p.join(timeout_s)
-
-    if p.is_alive():
-        p.kill()
-        p.join()
+    if process.is_alive():
+        process.kill()
+        process.join()
         logger.error("Failed to connect to RippleNeuroMed sEEG device!")
         return False
 
     try:
-        return bool(out_q.get_nowait())
+        return bool(output_queue.get_nowait())
     except queue.Empty:
         logger.exception("Failed to connect to RippleNeuroMed sEEG device!")
         return False
@@ -64,7 +65,7 @@ def send_trigger(trigger_value: int = 0, *, use_tcp: bool = USE_TCP) -> None:
                 trigger=trigger_value,
             )
         except Exception:
-            logger.warning(
+            logger.exception(
                 "Failed to send trigger {trigger} to parallel port",
                 trigger=trigger_value,
             )
@@ -84,12 +85,16 @@ def send_pulse(
             send_trigger(off_value, use_tcp=use_tcp)
 
         except Exception:
-            logger.warning(
-                "Failed to send pulse to parallel port",
-            )
+            logger.exception("Failed to send pulse to parallel port")
 
 
-def start_recording(*, operator_id: int = 129, filepath_base: Path, use_tcp: bool = USE_TCP, **kwargs) -> None:
+def start_recording(
+    *,
+    operator_id: int = 129,
+    filepath_base: Path,
+    use_tcp: bool = USE_TCP,
+    **kwargs,  # ruff: ignore[missing-type-kwargs]
+) -> None:
     with xp.xipppy_open(use_tcp=use_tcp):
         if use_tcp:
             xp.add_operator(oper_addr=operator_id)

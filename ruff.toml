@@ -2,5 +2,6 @@ preview = true
 
 [lint]
 select = ["ALL"]
-ignore = ["CPY001"]
+ignore = ["missing-copyright-notice", "line-too-long"]
 pydocstyle.convention = "numpy"
+logger-objects = ["loguru.logger"]

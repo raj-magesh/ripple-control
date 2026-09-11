@@ -9,7 +9,7 @@ __all__ = (
     "stop_recording",
 )
 
-from ._utilities import (
+from ripple_control._utilities import (
     USE_TCP,
     check_xipppy_connection,
     send_pulse,

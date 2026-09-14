@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import multiprocessing as mp
-import queue
 import time
+from multiprocessing.connection import Connection
 from typing import TYPE_CHECKING
 
 import xipppy as xp
@@ -15,42 +16,55 @@ PARALLEL_PORT_INDEX = 4
 USE_TCP = True
 
 
-def check_xipppy_connection(*, timeout_s: float = 5, use_tcp: bool = USE_TCP) -> bool:
-    def _attempt_xipppy_connection(*, use_tcp: bool, output_queue: mp.Queue) -> None:
-        try:
-            with xp.xipppy_open(use_tcp=use_tcp):
-                output_queue.put(obj=True)
-                logger.info(
-                    "Connected to RippleNeuroMed Explorer Summit | {version_info}",
-                    version_info=xp.get_version(),
-                )
-        except Exception:
-            output_queue.put(obj=False)
-            raise
+def _attempt_xipppy_connection(*, use_tcp: bool, connection: Connection) -> None:
+    try:
+        with xp.xipppy_open(use_tcp=use_tcp):
+            connection.send(obj=True)
+            logger.info(
+                "Connected to RippleNeuroMed Explorer Summit | {version_info}",
+                version_info=xp.get_version(),
+            )
+    except Exception:
+        with contextlib.suppress(BrokenPipeError, EOFError, OSError):
+            connection.send(obj=False)
 
+        logger.exception("Failed to connect to RippleNeuroMed sEEG device!")
+    finally:
+        connection.close()
+
+
+def check_xipppy_connection(*, timeout_s: float = 5, use_tcp: bool = USE_TCP) -> bool:
     logger.info("Attempting to connect to RippleNeuroMed sEEG device...")
 
     context = mp.get_context("spawn")  # cross-platform, esp. Windows
-    output_queue = context.Queue(maxsize=1)
+    parent_connection, child_connection = context.Pipe(duplex=False)
+
     process = context.Process(
         target=_attempt_xipppy_connection,
-        kwargs={"use_tcp": use_tcp, "output_queue": output_queue},
+        kwargs={"use_tcp": use_tcp, "connection": child_connection},
         daemon=True,
     )
     process.start()
+    child_connection.close()
+
     process.join(timeout_s)
 
     if process.is_alive():
         process.kill()
         process.join()
-        logger.error("Failed to connect to RippleNeuroMed sEEG device!")
+        parent_connection.close()
         return False
 
     try:
-        return bool(output_queue.get_nowait())
-    except queue.Empty:
-        logger.exception("Failed to connect to RippleNeuroMed sEEG device!")
+        if parent_connection.poll():
+            return bool(parent_connection.recv())
+        logger.error(
+            "Failed to connect to RippleNeuroMed sEEG device! ({exit_code})",
+            exit_code=process.exitcode,
+        )
         return False
+    finally:
+        parent_connection.close()
 
 
 def send_trigger(trigger_value: int = 0, *, use_tcp: bool = USE_TCP) -> None:
